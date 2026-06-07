@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import text
 
@@ -46,10 +46,10 @@ def calculate_cost(service, value):
     return round(value * cost_factors.get(service, 0), 4)
 
 
-def generate_snapshot():
+def generate_snapshot(ts):
     """Generate a complete infrastructure snapshot."""
 
-    ts = datetime.utcnow()
+    # ts = datetime.utcnow()
 
     metrics = [
         ("EC2", "CPU_UTILIZATION"),
@@ -133,8 +133,18 @@ def load_snapshots(num_snapshots=100):
 
     all_records = []
 
-    for _ in range(num_snapshots):
-        all_records.extend(generate_snapshot())
+    base_time = datetime.utcnow()
+
+    for i in range(num_snapshots):
+
+        snapshot_time = (
+            base_time
+            - timedelta(minutes=num_snapshots - i)
+        )
+
+        all_records.extend(
+            generate_snapshot(snapshot_time)
+        )
 
     insert_metrics(
         all_records,
