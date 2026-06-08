@@ -97,11 +97,8 @@ def insert_metrics(records, chunk_size=100):
     """
 
     total_inserted = 0
-
     for i in range(0, len(records), chunk_size):
-
         chunk = records[i:i + chunk_size]
-
         params = [
             {
                 "ts": record["timestamp"],
@@ -129,28 +126,19 @@ def insert_metrics(records, chunk_size=100):
 
 
 
-def load_snapshots(num_snapshots=100):
+def load_snapshots(num_snapshots):
 
     all_records = []
-
     base_time = datetime.utcnow()
-
     for i in range(num_snapshots):
-
         snapshot_time = (
-            base_time
-            - timedelta(minutes=num_snapshots - i)
+            base_time - timedelta(minutes=num_snapshots - i)
         )
-
         all_records.extend(
             generate_snapshot(snapshot_time)
         )
-
-    insert_metrics(
-        all_records,
-        chunk_size=100
-    )
-
+    insert_metrics(all_records, chunk_size=100)
+    
     print(
         f"Generated {len(all_records)} records "
         f"from {num_snapshots} snapshots"
