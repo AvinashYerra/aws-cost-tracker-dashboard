@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("☁️ AWS Cost Tracker")
+st.title("☁️ AWS Services Cost Tracker")
 st.caption("Executive Infrastructure Overview")
 
 query = """
