@@ -6,23 +6,39 @@ from sqlalchemy import text
 from db.connection import engine
 
 
-def generate_metric(service, metric, ts):
+def generate_metric(service, metric, ts, environment):
     """Generate a metric record."""
 
     metric_ranges = {
-        "CPU_UTILIZATION": lambda: round(random.uniform(20, 95), 2),
-        "MEMORY_UTILIZATION": lambda: round(random.uniform(30, 90), 2),
-        "STORAGE_GB": lambda: round(random.uniform(100, 1000), 2),
-        "INVOCATIONS": lambda: random.randint(1000, 50000),
-        "ACTIVE_CONNECTIONS": lambda: random.randint(20, 500),
+        "DEV": {
+            "CPU_UTILIZATION": (20, 50),
+            "MEMORY_UTILIZATION": (20, 60),
+            "STORAGE_GB": (100, 400),
+            "INVOCATIONS": (500, 5000),
+            "ACTIVE_CONNECTIONS": (20, 100)
+        },
+        "QA": {
+            "CPU_UTILIZATION": (40, 75),
+            "MEMORY_UTILIZATION": (40, 80),
+            "STORAGE_GB": (300, 700),
+            "INVOCATIONS": (5000, 15000),
+            "ACTIVE_CONNECTIONS": (75, 250)
+        },
+        "PROD": {
+            "CPU_UTILIZATION": (60, 95),
+            "MEMORY_UTILIZATION": (70, 95),
+            "STORAGE_GB": (600, 1200),
+            "INVOCATIONS": (15000, 50000),
+            "ACTIVE_CONNECTIONS": (200, 500)
+        }
     }
 
-    value = metric_ranges[metric]()
+    min_val, max_val = metric_ranges[environment][metric]
 
-    environment = random.choices(
-        ["DEV", "QA", "PROD"],
-        weights=[20, 20, 60],
-    )[0]
+    if metric in ["CPU_UTILIZATION", "MEMORY_UTILIZATION", "STORAGE_GB"]:
+        value = round(random.uniform(min_val, max_val), 2)
+    else:
+        value = random.randint(min_val, max_val)
 
     return {
         "timestamp": ts,
@@ -31,7 +47,6 @@ def generate_metric(service, metric, ts):
         "value": value,
         "environment": environment,
     }
-
 
 def calculate_cost(service, value):
     """Calculate estimated cost."""
@@ -46,10 +61,8 @@ def calculate_cost(service, value):
     return round(value * cost_factors.get(service, 0), 4)
 
 
-def generate_snapshot(ts):
+def generate_snapshot(ts,environment):
     """Generate a complete infrastructure snapshot."""
-
-    # ts = datetime.utcnow()
 
     metrics = [
         ("EC2", "CPU_UTILIZATION"),
@@ -59,16 +72,21 @@ def generate_snapshot(ts):
         ("RDS", "ACTIVE_CONNECTIONS"),
     ]
 
+
     records = []
 
     for service, metric in metrics:
-        record = generate_metric(service, metric, ts)
+        record = generate_metric(
+            service,
+            metric,
+            ts,
+            environment
+        )
         record["cost"] = calculate_cost(
             record["service"],
             record["value"]
         )
         records.append(record)
-
     return records
 
 
@@ -130,15 +148,28 @@ def load_snapshots(num_snapshots):
 
     all_records = []
     base_time = datetime.utcnow()
+    environments = (
+        ["DEV"] * int(num_snapshots * 0.2)
+        + ["QA"] * int(num_snapshots * 0.2)
+        + ["PROD"] * int(num_snapshots * 0.6)
+    )
+    random.shuffle(environments)
     for i in range(num_snapshots):
         snapshot_time = (
-            base_time - timedelta(minutes=num_snapshots - i)
+            base_time
+            - timedelta(minutes=num_snapshots - i)
         )
+        environment = environments[i]
         all_records.extend(
-            generate_snapshot(snapshot_time)
+            generate_snapshot(
+                snapshot_time,
+                environment
+            )
         )
-    insert_metrics(all_records, chunk_size=100)
-    
+    insert_metrics(
+        all_records,
+        chunk_size=100
+    )
     print(
         f"Generated {len(all_records)} records "
         f"from {num_snapshots} snapshots"
