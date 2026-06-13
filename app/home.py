@@ -87,3 +87,121 @@ with right:
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
+env_summary = (
+    df.groupby("environment")
+      .agg(
+          total_cost=("estimated_cost", "sum"),
+          records=("service_name", "count"),
+          avg_metric=("metric_value", "mean")
+      )
+      .reset_index()
+)
+
+env_summary["total_cost"] = env_summary["total_cost"].round(2)
+env_summary["avg_metric"] = env_summary["avg_metric"].round(2)
+
+st.subheader("Environment Summary")
+
+st.dataframe(
+    env_summary,
+    use_container_width=True,
+    hide_index=True
+)
+
+
+trend_df = (
+    df.groupby(
+        [
+            "ts",
+            "environment"
+        ]
+    )["estimated_cost"]
+    .sum()
+    .reset_index()
+)
+
+fig = px.line(
+    trend_df,
+    x="ts",
+    y="estimated_cost",
+    color="environment",
+    title="Cost Trend by Environment"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+
+
+st.subheader("Top Cost Drivers")
+
+leaderboard = (
+    df.groupby("service_name")
+      ["estimated_cost"]
+      .sum()
+      .reset_index()
+      .sort_values(
+          by="estimated_cost",
+          ascending=False
+      )
+)
+
+leaderboard["estimated_cost"] = (
+    leaderboard["estimated_cost"]
+    .round(2)
+)
+
+st.dataframe(
+    leaderboard,
+    use_container_width=True,
+    hide_index=True
+)
+
+
+st.subheader("Environment Health")
+
+health = (
+    df.groupby("environment")
+      ["metric_value"]
+      .mean()
+      .reset_index()
+)
+
+cols = st.columns(3)
+
+for idx, row in health.iterrows():
+
+    score = max(
+        0,
+        min(
+            100,
+            int(100 - row["metric_value"])
+        )
+    )
+
+    with cols[idx]:
+        st.metric(
+            row["environment"],
+            f"{score}%"
+        )
+
+        st.progress(score / 100)
+
+
+latest_ts = df["ts"].max()
+
+latest_snapshot = (
+    df[df["ts"] == latest_ts]
+    .sort_values("service_name")
+)
+
+st.subheader("Latest Infrastructure Snapshot")
+
+st.dataframe(
+    latest_snapshot,
+    use_container_width=True,
+    hide_index=True
+)
